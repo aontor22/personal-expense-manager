@@ -1,0 +1,17 @@
+{
+  "name": "Personal Expense Manager",
+  "short_name": "Expense Manager",
+  "description": "Offline-first personal expense tracker with Supabase sync and reports.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
