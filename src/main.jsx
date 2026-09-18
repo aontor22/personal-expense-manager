@@ -10,9 +10,16 @@ createRoot(document.getElementById('root')).render(
 );
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      // The app still works without service worker, but offline shell caching will be unavailable.
+  if (import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch((error) => {
+        console.warn('Service worker registration failed:', error);
+      });
     });
-  });
+  } else {
+    // Avoid stale production caches while developing locally.
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((registration) => registration.unregister());
+    });
+  }
 }
