@@ -8,16 +8,26 @@ import {
   setMeta,
 } from './idb';
 
+const SYNC_TIMEOUT_MS = 20000;
+
+function withTimeout(promise, timeoutMs = SYNC_TIMEOUT_MS) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = window.setTimeout(() => reject(new Error('Cloud sync timed out. Your local data is still safe.')), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timer));
+}
+
 function toRemoteRow(expense, userId) {
   return {
     user_id: userId,
-    local_id: expense.local_id,
-    title: expense.title,
+    local_id: String(expense.local_id),
+    title: String(expense.title || '').slice(0, 120),
     amount: Number(expense.amount || 0),
-    category: expense.category,
-    payment_method: expense.payment_method || 'Cash',
+    category: String(expense.category || 'Other').slice(0, 80),
+    payment_method: String(expense.payment_method || 'Cash').slice(0, 40),
     expense_date: expense.expense_date,
-    note: expense.note || '',
+    note: String(expense.note || '').slice(0, 500),
     created_at: expense.created_at,
     updated_at: expense.updated_at,
   };
@@ -43,21 +53,26 @@ function fromRemoteRow(row, existing = {}) {
 
 export async function canUseCloud() {
   if (!isSupabaseConfigured || !navigator.onLine) return false;
-  await ensureSupabaseSession();
+  await withTimeout(ensureSupabaseSession());
   return true;
 }
 
 export async function pushPendingChanges() {
   if (!(await canUseCloud())) return { pushed: 0, skipped: true };
 
-  const session = await ensureSupabaseSession();
+  const session = await withTimeout(ensureSupabaseSession());
   const pending = await getPendingLocalExpenses();
   let pushed = 0;
 
   for (const item of pending) {
+    if (item.sync_status === 'local_only') {
+      item.sync_status = 'pending_create';
+    }
+
     if (item.sync_status === 'pending_delete') {
       if (item.remote_id) {
-        const { error } = await supabase.from('expenses').delete().eq('id', item.remote_id);
+        const request = supabase.from('expenses').delete().eq('id', item.remote_id).eq('user_id', session.user.id);
+        const { error } = await withTimeout(request);
         if (error) throw error;
       }
       await deleteLocalExpense(item.local_id);
@@ -66,11 +81,12 @@ export async function pushPendingChanges() {
     }
 
     const payload = toRemoteRow(item, session.user.id);
-    const { data, error } = await supabase
+    const request = supabase
       .from('expenses')
       .upsert(payload, { onConflict: 'user_id,local_id' })
-      .select()
+      .select('id, local_id, updated_at')
       .single();
+    const { data, error } = await withTimeout(request);
 
     if (error) throw error;
 
@@ -90,10 +106,13 @@ export async function pushPendingChanges() {
 export async function pullCloudChanges() {
   if (!(await canUseCloud())) return { pulled: 0, skipped: true };
 
-  const { data, error } = await supabase
+  const session = await withTimeout(ensureSupabaseSession());
+  const request = supabase
     .from('expenses')
-    .select('*')
+    .select('id,user_id,local_id,title,amount,category,payment_method,expense_date,note,created_at,updated_at')
+    .eq('user_id', session.user.id)
     .order('expense_date', { ascending: false });
+  const { data, error } = await withTimeout(request);
 
   if (error) throw error;
 
@@ -114,11 +133,10 @@ export async function pullCloudChanges() {
 
 export async function syncNow() {
   if (!isSupabaseConfigured) {
-    return { ok: false, message: 'Supabase is not configured yet. Offline local mode is active.' };
+    return { ok: false, message: 'Supabase is not configured. Local offline mode is active.' };
   }
-
   if (!navigator.onLine) {
-    return { ok: false, message: 'You are offline. New records are saved locally and will sync when online.' };
+    return { ok: false, message: 'You are offline. New records are safe locally and will sync later.' };
   }
 
   try {
@@ -126,9 +144,10 @@ export async function syncNow() {
     const pulled = await pullCloudChanges();
     return {
       ok: true,
-      message: `Synced successfully. Pushed ${pushed.pushed || 0}, pulled ${pulled.pulled || 0}.`,
+      message: `Synced successfully · ${pushed.pushed || 0} pushed · ${pulled.pulled || 0} pulled`,
     };
   } catch (error) {
-    return { ok: false, message: error.message || 'Sync failed.' };
+    console.error('Expense sync failed:', error);
+    return { ok: false, message: error?.message || 'Sync failed. Your local data is still safe.' };
   }
 }

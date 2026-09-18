@@ -1,11 +1,13 @@
 {
-  "name": "Personal Expense Manager",
-  "short_name": "Expense Manager",
-  "description": "Offline-first personal expense tracker with Supabase sync and reports.",
+  "name": "ExpenseFlow — Personal Expense Manager",
+  "short_name": "ExpenseFlow",
+  "description": "Offline-first personal expense tracker with Supabase sync and downloadable reports.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#111827",
+  "background_color": "#f4f5fb",
+  "theme_color": "#302562",
+  "categories": ["finance", "productivity"],
   "icons": [
     {
       "src": "/icon.svg",
