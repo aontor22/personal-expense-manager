@@ -715,6 +715,7 @@ function App() {
       </section>
 
       <footer className="app-footer">
+        <a href="/features.html" className="seo-features-link" style={{ textDecoration: "underline" }}>Features & how it works</a>
         <div><RotateCcw size={17} /><span>Offline-first: IndexedDB keeps local writes safe until Supabase sync is available.</span></div>
         <div><ShieldCheck size={17} /><span>Cloud rows are protected by Supabase Row Level Security.</span></div>
       </footer>
