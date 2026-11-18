@@ -56,14 +56,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import {
-  bulkSaveLocalExpenses,
-  deleteLocalExpense,
-  generateLocalId,
-  getAllLocalExpenses,
-  getLocalExpense,
-  saveLocalExpense,
-} from './lib/idb';
+import { expenseStoreForUser, generateLocalId } from './lib/idb';
 import { isSupabaseConfigured } from './lib/supabase';
 import { syncNow } from './lib/sync';
 import { exportCSV, exportExcel, exportJSON, exportPDF, formatBDT } from './lib/exporters';
@@ -176,14 +169,17 @@ function EmptyState({ title, text }) {
   );
 }
 
-function App() {
+function App({ user, onOpenAccount }) {
+  const accountId = user.id;
+  const { bulkSaveLocalExpenses, deleteLocalExpense, getAllLocalExpenses, getLocalExpense, saveLocalExpense } =
+    useMemo(() => expenseStoreForUser(accountId), [accountId]);
   const [expenses, setExpenses] = useState([]);
   const [form, setForm] = useState(emptyForm());
   const [editingId, setEditingId] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth());
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [query, setQuery] = useState('');
-  const [monthlyBudget, setMonthlyBudget] = useState(() => Number(localStorage.getItem('monthly_budget') || 15000));
+  const [monthlyBudget, setMonthlyBudget] = useState(() => Number(localStorage.getItem(`monthly_budget:user:${accountId}`) || 15000));
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncMessage, setSyncMessage] = useState('Ready');
   const [isSyncing, setIsSyncing] = useState(false);
@@ -207,7 +203,7 @@ function App() {
     syncLockRef.current = true;
     setIsSyncing(true);
     try {
-      const result = await syncNow();
+      const result = await syncNow(accountId);
       setSyncMessage(result.message);
       await loadExpenses();
       if (!quiet) notify(result.message, result.ok ? 'success' : 'warning');
@@ -243,8 +239,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('monthly_budget', String(Number.isFinite(monthlyBudget) ? monthlyBudget : 0));
-  }, [monthlyBudget]);
+    localStorage.setItem(`monthly_budget:user:${accountId}`, String(Number.isFinite(monthlyBudget) ? monthlyBudget : 0));
+  }, [monthlyBudget, accountId]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -493,6 +489,9 @@ function App() {
             <span className="connection-dot" />
             {isOnline ? 'Online' : 'Offline'}
           </div>
+          <button className="efa-account-trigger" type="button" onClick={onOpenAccount} aria-label="Manage account">
+            <ShieldCheck size={15} /> {user.email ? user.email.split('@')[0] : 'Guest account'}
+          </button>
           <button className="icon-btn" type="button" aria-label="Toggle color theme" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>

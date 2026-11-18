@@ -24,7 +24,7 @@ export const supabase = isSupabaseConfigured
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: false,
+        detectSessionInUrl: true,
         flowType: 'pkce',
       },
       global: {
@@ -35,25 +35,10 @@ export const supabase = isSupabaseConfigured
     })
   : null;
 
-let sessionPromise = null;
-
+/** Existing session only. Never silently create a guest during sync or after sign-out. */
 export async function ensureSupabaseSession() {
   if (!supabase) return null;
-
-  if (!sessionPromise) {
-    sessionPromise = (async () => {
-      const { data: existing, error: existingError } = await supabase.auth.getSession();
-      if (existingError) throw existingError;
-      if (existing?.session?.user) return existing.session;
-
-      const { data, error } = await supabase.auth.signInAnonymously();
-      if (error) throw error;
-      if (!data?.session?.user) throw new Error('Supabase did not return an authenticated session.');
-      return data.session;
-    })().finally(() => {
-      sessionPromise = null;
-    });
-  }
-
-  return sessionPromise;
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  return data?.session ?? null;
 }

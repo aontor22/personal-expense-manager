@@ -1,3 +1,5 @@
+> **NEW AUTH UPDATE:** Read [`AUTH_UPDATE_README_BN.md`](AUTH_UPDATE_README_BN.md) for Email/Google login, `/app` route, data migration, deployment and Supabase settings.
+
 # ExpenseFlow — Personal Expense Manager v2
 
 Offline-first personal monthly expense tracker with Supabase cloud sync, IndexedDB local storage, analytics, PDF/Excel/CSV reports and JSON backup/restore.
